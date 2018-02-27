@@ -2,7 +2,7 @@
 
 ## Data
 该数据集有1000+个用户，1700+部电影，十万的评分数据。
-![source](https://grouplens.org/datasets/movielens/)
+[source](https://grouplens.org/datasets/movielens/)
 
 ## 项目描述
 
