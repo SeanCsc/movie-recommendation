@@ -11,56 +11,58 @@
 
 ## 环境
 
-基于linux下spark-shell编程实现。
+基于pyspark编程实现。
 
 依赖库： 
-```scala
-import org.apache.log4j.{Level, Logger}
-import org.apache.spark.mllib.recommendation.{ALS, MatrixFactorizationModel, Rating}
-import org.apache.spark.rdd._
-import org.apache.spark.{SparkContext, SparkConf}
-import scala.io.Source
+```python
+from pyspark.mllib.recommendation import Rating
+from pyspark.mllib.recommendation import ALS
 ```
+
+## 原理
+在Spark MLlib中，推荐算法实现了基于矩阵分解的协同过滤算法，该算法基于FunkSVD,将评分矩阵分解为两个低维的矩阵。
+
+#### Recommendation:
+-Rating类：封装用户，物品，评分三元组
+-ALS（交替最小二乘法）类：用来训练FunkSVD模型
+```python
+#参数
+#ratings - 评分矩阵对应的RDD
+#rank-矩阵分解的维度
+#iteration-使用ALS求解的最大迭代次数
+#lambda-FunkSVD分解时的正则化系数
+```
+-MatrixFactorizationModel:用ALS训练出来的模型，可以用来帮助做预测
+
+
 
 ## 流程
 
 #### 数据读取
--定义读取函数（数据切割）
-```scala
-def addRatings(path:String):Seq[Rating] = {
-    val lines = Source.fromFile(path).getLines()
-    val ratings = lines.map{
-      line =>
-        val fields = line.split("::")
-        Rating(fields(0).toInt,fields(1).toInt,fields(2).toDouble)
-    }.filter(_.rating > 0.0)
-    if(ratings.isEmpty){
-      sys.error("No ratings provided.")
-    }else{
-      ratings.toSeq
-    }
-  }
-    val myRatings = addRatings("/home/shiyanlou/ml-1m/person.txt")
-    val myRatingsRDD = sc.parallelize(myRatings, 1)
- ```
- - 加载样本评分数据
- ``` scala
- val ratings = sc.textFile("/home/shiyanlou/ml-1m/ratings.dat").map {
-      line =>
-        val fields = line.split("::")
-
-        (fields(3).toLong % 10, Rating(fields(0).toInt, fields(1).toInt, fields(2).toDouble))
-    }
- ```
- - 加载电影数据
-```scala
- val movies = sc.textFile("/home/shiyanlou/ml-1m/movies.dat").map {
-      line =>
-        val fields = line.split("::")
-        (fields(0).toInt, fields(1)) 
-    }.collect().toMap
- ```
- 
+```python
+user_data = sc.textFile("u.data")
+``` 
  #### 预处理
- 
+ 将数据按分割符分开并转化成Rating类对应的数组
+```python
+rates = user_data.map(lambda x: x.split("\t")[0:3])
+rates_data = rates.map(lambda x: Rating(int(x[0]),int(x[1]),int(x[2])))
+```
+#### 训练模型
+```python
+sc.setCheckpointDir('checkpoint/')
+ALS.checkpointInterval = 2
+model = ALS.train(ratings=rates_data, rank=20, iterations=5, lambda_=0.02)
+```
+#### 推荐
+```python
+model.predict(i,j)
+#得到用户i对物品j的评分
+model.recommendProducts(i,j)
+#用户i最喜欢的j个物品
+model.recommendUsers(i,j)
+#物品i最值得推荐给的j个用户
+```
+
+
     
